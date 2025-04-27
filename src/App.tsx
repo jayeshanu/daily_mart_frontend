@@ -1,8 +1,11 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { createTheme } from '@mui/material/styles';
 import Inventory from './pages/Inventory';
+import Shop from './pages/Shop';
 import Layout from './components/Layout';
+import Reports from './pages/Reports';
 
 const theme = createTheme({
   palette: {
@@ -78,7 +81,7 @@ const theme = createTheme({
   },
 });
 
-function App() {
+const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -86,11 +89,13 @@ function App() {
         <Layout>
           <Routes>
             <Route path="/" element={<Inventory />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/reports" element={<Reports />} />
           </Routes>
         </Layout>
       </Router>
     </ThemeProvider>
   );
-}
+};
 
 export default App;

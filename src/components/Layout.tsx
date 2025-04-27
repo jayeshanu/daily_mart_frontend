@@ -25,6 +25,9 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PersonIcon from '@mui/icons-material/Person';
+import StorefrontIcon from '@mui/icons-material/Storefront';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface LayoutProps {
   children: ReactNode;
@@ -34,6 +37,8 @@ const Layout = ({ children }: LayoutProps) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const toggleDrawer = () => {
     setDrawerOpen(!drawerOpen);
@@ -41,7 +46,9 @@ const Layout = ({ children }: LayoutProps) => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Inventory', icon: <InventoryIcon />, path: '/' },
+    { text: 'Warehouse', icon: <InventoryIcon />, path: '/' },
+    { text: 'Shop', icon: <StorefrontIcon />, path: '/shop' },
+    { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
 
@@ -57,7 +64,13 @@ const Layout = ({ children }: LayoutProps) => {
       <List>
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
-            <ListItemButton sx={{ py: 1 }}>
+            <ListItemButton 
+              sx={{ 
+                py: 1,
+                backgroundColor: location.pathname === item.path ? theme.palette.action.selected : 'transparent'
+              }}
+              onClick={() => navigate(item.path)}
+            >
               <ListItemIcon sx={{ color: theme.palette.primary.main }}>
                 {item.icon}
               </ListItemIcon>

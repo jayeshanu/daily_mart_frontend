@@ -72,6 +72,8 @@ const Inventory = () => {
   const [moveQuantity, setMoveQuantity] = useState('');
   const [moveQuantityError, setMoveQuantityError] = useState('');
   const [moveToLocation, setMoveToLocation] = useState('');
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [editItem, setEditItem] = useState<Item | null>(null);
 
   useEffect(() => {
     loadItems();
@@ -95,7 +97,7 @@ const Inventory = () => {
   const loadItems = async () => {
     setLoading(true);
     try {
-      const data = await ItemService.listItems();
+      const data = await ItemService.listItems({ location: 'warehouse' });
       console.log("Loaded items:", data);
       // Check if items have IDs
       const itemsWithIds = data.map((item: Item) => {
@@ -109,7 +111,7 @@ const Inventory = () => {
       setError(null);
     } catch (error) {
       console.error('Error loading items:', error);
-      setError('Failed to load inventory items. Please try again later.');
+      setError('Failed to load warehouse items. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -139,7 +141,7 @@ const Inventory = () => {
   };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, item: Item) => {
-    console.log("Opening menu for item:", item); // Debug log
+    console.log('Opening menu for item:', item);
     setAnchorEl(event.currentTarget);
     setSelectedItem(item);
   };
@@ -183,6 +185,18 @@ const Inventory = () => {
       const quantity = parseInt(moveQuantity);
       if (isNaN(quantity)) return;
       
+      console.log('Moving item with details:', {
+        selectedItem,
+        itemId: selectedItem.id,
+        moveToLocation,
+        quantity
+      });
+      
+      if (!selectedItem.id) {
+        setError('Item ID is missing. Cannot move item.');
+        return;
+      }
+      
       await ItemService.moveItem(selectedItem.id, {
         to_location: moveToLocation,
         quantity: quantity,
@@ -191,7 +205,8 @@ const Inventory = () => {
       loadItems();
       setSuccessMessage('Item moved successfully');
     } catch (error) {
-      setError('Failed to move item');
+      console.error('Error moving item:', error);
+      setError('Failed to move item: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -266,14 +281,79 @@ const Inventory = () => {
     return 'default';
   };
 
+  const handleEditClick = () => {
+    if (selectedItem) {
+      console.log('Setting edit item:', selectedItem);
+      
+      const itemId = selectedItem.id || (selectedItem as any).ID;
+      
+      if (!itemId) {
+        console.error("Item ID is missing:", selectedItem);
+        setError("Cannot edit item: Item ID is missing");
+        return;
+      }
+      
+      const itemWithId = {
+        ...selectedItem,
+        id: itemId
+      };
+      
+      // Format the expiry date as a full ISO timestamp
+      const formattedExpiryDate = itemWithId.expiry_date 
+        ? new Date(itemWithId.expiry_date).toISOString()
+        : '';
+      
+      setEditItem({
+        ...itemWithId,
+        expiry_date: formattedExpiryDate
+      });
+      setOpenEditDialog(true);
+    } else {
+      console.error('No item selected for editing');
+    }
+    handleMenuClose();
+  };
+
+  const handleUpdateItem = async () => {
+    if (!editItem || !editItem.id) {
+      console.error('No item selected or item ID missing:', editItem);
+      return;
+    }
+
+    try {
+      console.log('Starting item update...');
+      console.log('Item ID:', editItem.id);
+      
+      // Format the update data
+      const updateData = {
+        category: editItem.category,
+        description: editItem.description,
+        expiry_date: editItem.expiry_date,
+        quantity: parseInt(editItem.quantity.toString())
+      };
+      
+      console.log('Update data:', updateData);
+
+      const response = await ItemService.updateItem(editItem.id, updateData);
+
+      console.log('Update response:', response);
+      setOpenEditDialog(false);
+      loadItems();
+      setSuccessMessage('Item updated successfully');
+    } catch (error) {
+      console.error('Error updating item:', error);
+      setError('Failed to update item. Please try again.');
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          Inventory Management
+          Warehouse Management
         </Typography>
         <Typography variant="body1" color="text.secondary" paragraph>
-          Manage your inventory items, track stock levels, and monitor product locations.
+          Manage your warehouse inventory, track stock levels, and monitor product locations.
         </Typography>
       </Box>
 
@@ -374,7 +454,6 @@ const Inventory = () => {
                     <TableCell>Buy Price</TableCell>
                     <TableCell>Sell Price</TableCell>
                     <TableCell>Quantity</TableCell>
-                    <TableCell>Location</TableCell>
                     <TableCell>Expiry Date</TableCell>
                     <TableCell>Actions</TableCell>
                   </TableRow>
@@ -396,21 +475,9 @@ const Inventory = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Chip 
-                            label={item.location} 
-                            color={getLocationColor(item.location)} 
-                            size="small" 
-                          />
-                        </TableCell>
-                        <TableCell>
                           {new Date(item.expiry_date).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
-                          <Tooltip title="Edit">
-                            <IconButton size="small" color="primary">
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
                           <Tooltip title="More Actions">
                             <IconButton 
                               size="small" 
@@ -542,6 +609,10 @@ const Inventory = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
+        <MenuItem onClick={handleEditClick}>
+          <EditIcon fontSize="small" sx={{ mr: 1 }} />
+          Edit
+        </MenuItem>
         <MenuItem onClick={() => {
           if (selectedItem) {
             openMoveItemDialog(selectedItem);
@@ -550,10 +621,6 @@ const Inventory = () => {
         }}>
           <LocalShippingIcon fontSize="small" sx={{ mr: 1 }} />
           Move Item
-        </MenuItem>
-        <MenuItem onClick={handleMenuClose}>
-          <EditIcon fontSize="small" sx={{ mr: 1 }} />
-          Edit
         </MenuItem>
         <Divider />
         <MenuItem 
@@ -638,6 +705,82 @@ const Inventory = () => {
             disabled={!selectedItem || !moveToLocation || !moveQuantity || !!moveQuantityError}
           >
             Move
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Item</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {editItem && (
+              <>
+                <Typography variant="body1">
+                  Editing: <strong>{editItem.name}</strong>
+                </Typography>
+                
+                <TextField
+                  fullWidth
+                  label="Category"
+                  value={editItem.category}
+                  onChange={(e) => setEditItem({ ...editItem, category: e.target.value })}
+                />
+                
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Description"
+                  value={editItem.description}
+                  onChange={(e) => setEditItem({ ...editItem, description: e.target.value })}
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Quantity"
+                  value={editItem.quantity}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      setEditItem({ ...editItem, quantity: 0 });
+                    } else {
+                      const numValue = parseInt(value);
+                      if (!isNaN(numValue) && numValue >= 0) {
+                        setEditItem({ ...editItem, quantity: numValue });
+                      }
+                    }
+                  }}
+                  inputProps={{ 
+                    min: 0,
+                    style: { 
+                      WebkitAppearance: 'textfield',
+                      MozAppearance: 'textfield',
+                      appearance: 'textfield'
+                    }
+                  }}
+                />
+                
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="Expiry Date"
+                  value={editItem.expiry_date}
+                  onChange={(e) => setEditItem({ ...editItem, expiry_date: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={handleUpdateItem} 
+            variant="contained" 
+            color="primary"
+            disabled={!editItem}
+          >
+            Update
           </Button>
         </DialogActions>
       </Dialog>

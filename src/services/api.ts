@@ -53,6 +53,45 @@ export const ItemService = {
       throw error;
     }
   },
+
+  sellItem: async (itemId: number, sellRequest: { quantity: number; price: number }) => {
+    const response = await fetch(`${API_BASE_URL}/items/${itemId}/sell`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sellRequest),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to sell item');
+    }
+    return response.json();
+  },
+
+  updateItem: async (itemId: number, updates: { category?: string; description?: string; expiry_date?: string; quantity?: number }) => {
+    try {
+      console.log('Making API call to update item:', itemId);
+      console.log('Update payload:', updates);
+      const response = await api.put(`/items/${itemId}`, updates);
+      console.log('API response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error in updateItem API call:', error);
+      throw error;
+    }
+  },
+};
+
+export const MovementService = {
+  getMovements: async () => {
+    try {
+      const response = await api.get('/api/movements');
+      return response.data;
+    } catch (error) {
+      console.error('Error in getMovements API call:', error);
+      throw error;
+    }
+  },
 };
 
 export default api; 
