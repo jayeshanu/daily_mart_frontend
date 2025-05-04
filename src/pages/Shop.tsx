@@ -49,6 +49,10 @@ const Shop = () => {
   const [sellQuantity, setSellQuantity] = useState('');
   const [sellPrice, setSellPrice] = useState('');
   const [sellQuantityError, setSellQuantityError] = useState('');
+  const [discount, setDiscount] = useState('');
+  const [discountType, setDiscountType] = useState<'percentage' | 'amount'>('percentage');
+  const [discountError, setDiscountError] = useState('');
+  const [sellingDate, setSellingDate] = useState<string>('');
 
   useEffect(() => {
     loadShopItems();
@@ -72,8 +76,15 @@ const Shop = () => {
     setLoading(true);
     try {
       const data = await ItemService.listItems({ location: 'shop' });
+      console.log('Raw API response:', data);
       // Filter out items with zero quantity
       const inStockItems = data.filter((item: Item) => item.quantity > 0);
+      console.log('In stock items:', inStockItems);
+      // Log any items without IDs
+      const itemsWithoutIds = inStockItems.filter((item: Item) => !item.id);
+      if (itemsWithoutIds.length > 0) {
+        console.warn('Items without IDs found:', itemsWithoutIds);
+      }
       setItems(inStockItems);
       setFilteredItems(inStockItems);
       setError(null);
@@ -86,6 +97,15 @@ const Shop = () => {
   };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, item: Item) => {
+    event.stopPropagation(); // Prevent event bubbling
+    console.log('Menu opened for item:', item);
+    // Check for both id and ID
+    const itemId = item.id || (item as any)?.ID;
+    if (!itemId) {
+      console.error('Item missing ID:', item);
+      setError('Invalid item selected');
+      return;
+    }
     setAnchorEl(event.currentTarget);
     setSelectedItem(item);
   };
@@ -95,10 +115,24 @@ const Shop = () => {
   };
 
   const handleSellClick = () => {
-    if (selectedItem) {
-      setSellPrice(selectedItem.sell_price.toString());
-      setOpenSellDialog(true);
+    console.log('Sell clicked, selectedItem:', selectedItem);
+    // Check for both id and ID
+    const itemId = selectedItem?.id || (selectedItem as any)?.ID;
+    if (!selectedItem || !itemId) {
+      console.error('No valid item selected');
+      setError('Please select a valid item');
+      return;
     }
+    setSellPrice(selectedItem.sell_price.toString());
+    // Initialize selling date with current date and time
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    setSellingDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+    setOpenSellDialog(true);
     handleMenuClose();
   };
 
@@ -122,22 +156,71 @@ const Shop = () => {
     return true;
   };
 
+  const validateDiscount = (value: string) => {
+    if (!value) {
+      setDiscountError('');
+      return true;
+    }
+    
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) {
+      setDiscountError('Please enter a valid number');
+      return false;
+    }
+    if (numValue < 0) {
+      setDiscountError('Discount cannot be negative');
+      return false;
+    }
+    if (discountType === 'percentage' && numValue > 100) {
+      setDiscountError('Percentage cannot be more than 100%');
+      return false;
+    }
+    setDiscountError('');
+    return true;
+  };
+
   const handleSellItem = async () => {
-    if (!selectedItem || !validateSellQuantity(sellQuantity)) return;
+    console.log('Attempting to sell item:', selectedItem);
+    // Check for both id and ID
+    const itemId = selectedItem?.id || (selectedItem as any)?.ID;
+    if (!selectedItem || !itemId || !validateSellQuantity(sellQuantity) || !validateDiscount(discount)) {
+      console.error('Invalid item data:', { selectedItem, sellQuantity, discount });
+      setError('Invalid item or missing item ID');
+      return;
+    }
 
     try {
       const quantity = parseInt(sellQuantity);
       const price = parseFloat(sellPrice);
+      const discountValue = discount ? parseFloat(discount) : 0;
+      const transactionDate = sellingDate || new Date().toISOString();
       
-      await ItemService.sellItem(selectedItem.id, {
+      console.log('Sending sell request with:', {
+        itemId,
+        quantity,
+        price,
+        buy_price: selectedItem.buy_price,
+        discount: discountValue,
+        discount_type: discountType,
+        transaction_date: transactionDate
+      });
+
+      await ItemService.sellItem(itemId, {
         quantity: quantity,
-        price: price
+        price: price,
+        buy_price: selectedItem.buy_price,
+        discount: discountValue,
+        discount_type: discountType,
+        transaction_date: transactionDate
       });
       
       setOpenSellDialog(false);
       loadShopItems();
       setSellQuantity('');
       setSellPrice('');
+      setDiscount('');
+      setDiscountType('percentage');
+      setSellingDate('');
     } catch (error) {
       console.error('Error selling item:', error);
       setError('Failed to sell item. Please try again.');
@@ -175,8 +258,8 @@ const Shop = () => {
 
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
+            <Box sx={{ flex: 1 }}>
               <TextField
                 fullWidth
                 variant="outlined"
@@ -191,13 +274,13 @@ const Shop = () => {
                   ),
                 }}
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Typography variant="h6">
                 Total Items: {items.length}
               </Typography>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
 
@@ -217,8 +300,8 @@ const Shop = () => {
           <TableBody>
             {filteredItems
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((item) => (
-                <TableRow key={item.id}>
+              .map((item, index) => (
+                <TableRow key={`item-${item.id || index}`}>
                   <TableCell>{item.name}</TableCell>
                   <TableCell>{item.category}</TableCell>
                   <TableCell>{item.quantity}</TableCell>
@@ -228,6 +311,7 @@ const Shop = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
+                      key={`chip-${item.id || index}`}
                       label={item.quantity < 10 ? 'Low Stock' : 'In Stock'}
                       color={getStatusColor(item.quantity)}
                     />
@@ -235,6 +319,7 @@ const Shop = () => {
                   <TableCell>
                     <Tooltip title="More Actions">
                       <IconButton 
+                        key={`action-${item.id || index}`}
                         size="small" 
                         onClick={(e) => handleMenuOpen(e, item)}
                       >
@@ -262,7 +347,7 @@ const Shop = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={handleSellClick}>
+        <MenuItem key="sell" onClick={handleSellClick}>
           Sell Item
         </MenuItem>
       </Menu>
@@ -310,6 +395,46 @@ const Shop = () => {
                     step: "0.01"
                   }}
                 />
+
+                <TextField
+                  fullWidth
+                  label="Selling Date"
+                  type="datetime-local"
+                  value={sellingDate}
+                  onChange={(e) => setSellingDate(e.target.value)}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  inputProps={{
+                    step: 1 // This allows for seconds precision
+                  }}
+                />
+
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  <TextField
+                    fullWidth
+                    label="Discount"
+                    value={discount}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setDiscount(value);
+                      validateDiscount(value);
+                    }}
+                    error={!!discountError}
+                    helperText={discountError}
+                    type="number"
+                    inputProps={{
+                      step: "0.01"
+                    }}
+                  />
+                  <Button
+                    variant="outlined"
+                    onClick={() => setDiscountType(discountType === 'percentage' ? 'amount' : 'percentage')}
+                    sx={{ minWidth: '120px' }}
+                  >
+                    {discountType === 'percentage' ? '%' : '₹'}
+                  </Button>
+                </Box>
               </>
             )}
           </Stack>
@@ -320,7 +445,7 @@ const Shop = () => {
             onClick={handleSellItem} 
             variant="contained" 
             color="primary"
-            disabled={!selectedItem || !sellQuantity || !!sellQuantityError || !sellPrice}
+            disabled={!selectedItem || !sellQuantity || !!sellQuantityError || !sellPrice || !!discountError}
           >
             Sell
           </Button>

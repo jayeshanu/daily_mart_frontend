@@ -27,6 +27,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import PersonIcon from '@mui/icons-material/Person';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface LayoutProps {
@@ -46,11 +47,15 @@ const Layout = ({ children }: LayoutProps) => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Warehouse', icon: <InventoryIcon />, path: '/' },
+    { text: 'Warehouse', icon: <InventoryIcon />, path: '/warehouse' },
     { text: 'Shop', icon: <StorefrontIcon />, path: '/shop' },
+    { text: 'Transactions', icon: <ReceiptIcon />, path: '/transactions' },
     { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
+
+  console.log('Current path:', location.pathname);
+  console.log('Menu items:', menuItems);
 
   const drawer = (
     <Box sx={{ width: 250 }}>
@@ -62,22 +67,28 @@ const Layout = ({ children }: LayoutProps) => {
       </Box>
       <Divider />
       <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton 
-              sx={{ 
-                py: 1,
-                backgroundColor: location.pathname === item.path ? theme.palette.action.selected : 'transparent'
-              }}
-              onClick={() => navigate(item.path)}
-            >
-              <ListItemIcon sx={{ color: theme.palette.primary.main }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
+        {menuItems.map((item) => {
+          console.log(`Rendering menu item: ${item.text}, path: ${item.path}`);
+          return (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton 
+                sx={{ 
+                  py: 1,
+                  backgroundColor: location.pathname === item.path ? theme.palette.action.selected : 'transparent'
+                }}
+                onClick={() => {
+                  console.log(`Navigating to: ${item.path}`);
+                  navigate(item.path);
+                }}
+              >
+                <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText primary={item.text} />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
     </Box>
   );

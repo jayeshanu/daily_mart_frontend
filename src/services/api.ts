@@ -54,18 +54,21 @@ export const ItemService = {
     }
   },
 
-  sellItem: async (itemId: number, sellRequest: { quantity: number; price: number }) => {
-    const response = await fetch(`${API_BASE_URL}/items/${itemId}/sell`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(sellRequest),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to sell item');
+  sellItem: async (itemId: number, sellRequest: { 
+    quantity: number; 
+    price: number;
+    buy_price: number;
+    discount?: number;
+    discount_type?: 'percentage' | 'amount';
+    transaction_date?: string;
+  }) => {
+    try {
+      const response = await api.post(`/items/${itemId}/sell`, sellRequest);
+      return response.data;
+    } catch (error) {
+      console.error('Error in sellItem API call:', error);
+      throw error;
     }
-    return response.json();
   },
 
   updateItem: async (itemId: number, updates: { category?: string; description?: string; expiry_date?: string; quantity?: number }) => {
@@ -92,6 +95,68 @@ export const MovementService = {
       throw error;
     }
   },
+};
+
+export interface Transaction {
+  id: number;
+  item_id: number;
+  item_name: string;
+  quantity: number;
+  buying_price: number;
+  selling_price: number;
+  discount: number;
+  transaction_date: string;
+}
+
+export interface TransactionCreate {
+  item_id: number;
+  quantity: number;
+  selling_price: number;
+  buying_price: number;
+  discount?: number;
+  transaction_type: string;
+  description?: string;
+}
+
+export const TransactionService = {
+  createTransaction: async (transaction: TransactionCreate): Promise<Transaction> => {
+    const response = await api.post('/transactions/', transaction);
+    return response.data;
+  },
+
+  getTransactions: async (): Promise<Transaction[]> => {
+    console.log('Fetching transactions from:', `${API_BASE_URL}/api/transactions`);
+    try {
+      const response = await axios.get<Transaction[]>(`${API_BASE_URL}/api/transactions`);
+      console.log('Transactions API response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      throw error;
+    }
+  },
+
+  getTransaction: async (id: number): Promise<Transaction> => {
+    const response = await api.get(`/transactions/${id}`);
+    return response.data;
+  },
+
+  getTransactionsByItem: async (itemId: number): Promise<Transaction[]> => {
+    const response = await api.get(`/transactions/item/${itemId}`);
+    return response.data;
+  },
+};
+
+export const getTransactions = async (): Promise<Transaction[]> => {
+  console.log('Fetching transactions from:', `${API_BASE_URL}/api/transactions`);
+  try {
+    const response = await axios.get<Transaction[]>(`${API_BASE_URL}/api/transactions`);
+    console.log('Transactions API response:', response);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    throw error;
+  }
 };
 
 export default api; 

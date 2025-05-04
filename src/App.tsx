@@ -6,6 +6,8 @@ import Inventory from './pages/Inventory';
 import Shop from './pages/Shop';
 import Layout from './components/Layout';
 import Reports from './pages/Reports';
+import Dashboard from './pages/Dashboard';
+import Transactions from './pages/Transactions';
 
 const theme = createTheme({
   palette: {
@@ -82,14 +84,25 @@ const theme = createTheme({
 });
 
 const App: React.FC = () => {
+  console.log('App component mounted');
+  console.log('Available routes:', [
+    { path: '/', component: 'Dashboard' },
+    { path: '/warehouse', component: 'Inventory' },
+    { path: '/shop', component: 'Shop' },
+    { path: '/transactions', component: 'Transactions' },
+    { path: '/reports', component: 'Reports' },
+  ]);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
         <Layout>
           <Routes>
-            <Route path="/" element={<Inventory />} />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/warehouse" element={<Inventory />} />
             <Route path="/shop" element={<Shop />} />
+            <Route path="/transactions" element={<Transactions />} />
             <Route path="/reports" element={<Reports />} />
           </Routes>
         </Layout>
